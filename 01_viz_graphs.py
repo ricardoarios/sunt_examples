@@ -1,5 +1,5 @@
 """
-02 – Graph visualization of the bus network.
+02 - Graph visualization of the bus network.
 
 Produces:
   A) Simplified graph: top 20 stops by mean occupancy, geographic layout
@@ -10,25 +10,26 @@ Requires: networkx, matplotlib, folium
 Optional: cartopy (for basemap background)
 """
 
-from pathlib import Path
 import pickle
 import warnings
+from pathlib import Path
 
-import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-import pandas as pd
 
 try:
     import folium
+
     FOLIUM_AVAILABLE = True
 except ImportError:
-    warnings.warn("folium not installed – skipping interactive map (pip install folium)")
+    warnings.warn(
+        "folium not installed – skipping interactive map (pip install folium)"
+    )
     FOLIUM_AVAILABLE = False
 
-from suntdataset import SUNTVisualizer
 from utils import build_graph_from_od
 
 # ---------------------------------------------------------------------------
@@ -36,10 +37,10 @@ from utils import build_graph_from_od
 # ---------------------------------------------------------------------------
 OUTPUT_DIR = Path("outputs/viz_graphs")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-DATA_FILE  = Path("data/sunt.data")
+DATA_FILE = Path("data/sunt.data")
 
-TOP_N = 20          # number of top stops to display
-FREQ  = "1h"        # aggregation frequency for occupancy computation
+TOP_N = 20  # number of top stops to display
+FREQ = "1h"  # aggregation frequency for occupancy computation
 
 # ---------------------------------------------------------------------------
 # Load data & compute mean occupancy per stop
@@ -64,7 +65,10 @@ print("\nBuilding graph from OD data ...")
 # SUNTVisualizer.build_od_graph() uses the original column name "n-boardings"
 # build_graph_from_od() in data_loader handles the rename transparently
 G_full = build_graph_from_od(od)
-print(f"  Full graph: {G_full.number_of_nodes():,} nodes, {G_full.number_of_edges():,} edges")
+print(
+    f"  Full graph: {G_full.number_of_nodes():,} nodes, {G_full.number_of_edges():,} edges"
+)
+
 
 # SUNTVisualizer converts stop_id via str(), so floats become "44042532.0".
 # Normalize all node IDs: strip trailing ".0" to match boarding stop_ids.
@@ -72,17 +76,19 @@ def _norm_id(s):
     s = str(s)
     return s[:-2] if s.endswith(".0") else s
 
+
 G_norm = nx.relabel_nodes(G_full, {n: _norm_id(n) for n in G_full.nodes})
 
 # Enrich nodes with lat/lon from GTFS stops
 try:
     from utils import load_gtfs
+
     stops_gtfs = load_gtfs("stops")
     for _, row in stops_gtfs.iterrows():
         sid = _norm_id(row.get("stop_id", ""))
         if G_norm.has_node(sid):
-            G_norm.nodes[sid]["lat"]  = float(row.get("stop_lat", 0))
-            G_norm.nodes[sid]["lon"]  = float(row.get("stop_lon", 0))
+            G_norm.nodes[sid]["lat"] = float(row.get("stop_lat", 0))
+            G_norm.nodes[sid]["lon"] = float(row.get("stop_lon", 0))
             G_norm.nodes[sid]["name"] = str(row.get("stop_name", sid))
 except Exception as e:
     print(f"  (GTFS stop metadata not loaded: {e})")
@@ -99,7 +105,10 @@ for s in top_stops:
 for node in G_top.nodes:
     G_top.nodes[node]["mean_boardings"] = float(mean_occ.get(node, 0))
 
-print(f"  Top-{TOP_N} subgraph: {G_top.number_of_nodes()} nodes, {G_top.number_of_edges()} edges")
+print(
+    f"  Top-{TOP_N} subgraph: {G_top.number_of_nodes()} nodes, {G_top.number_of_edges()} edges"
+)
+
 
 # ---------------------------------------------------------------------------
 # Layout: prefer geographic coordinates; fall back to spring layout
@@ -131,7 +140,7 @@ for node in G_norm.nodes:
 
 # Separate node lists for layered drawing
 other_nodes = [n for n in G_norm.nodes if n not in top_set]
-top_nodes   = [n for n in G_norm.nodes if n in top_set]
+top_nodes = [n for n in G_norm.nodes if n in top_set]
 
 # Top-20 node sizes scaled by boardings
 top_boardings = [G_norm.nodes[n]["mean_boardings"] for n in top_nodes]
@@ -140,8 +149,8 @@ top_sizes = [400 + 2000 * (b / max_b) for b in top_boardings]
 
 # Edge widths from full graph
 edge_weights = [G_norm[u][v].get("weight", 1) for u, v in G_norm.edges]
-max_w        = max(edge_weights, default=1) or 1
-edge_widths  = [0.3 + 2.5 * (w / max_w) for w in edge_weights]
+max_w = max(edge_weights, default=1) or 1
+edge_widths = [0.3 + 2.5 * (w / max_w) for w in edge_weights]
 
 cmap = cm.YlOrRd
 norm = mcolors.Normalize(vmin=0, vmax=max_b)
@@ -150,27 +159,55 @@ top_colors = [cmap(norm(b)) for b in top_boardings]
 fig, ax = plt.subplots(figsize=(12, 9))
 
 # Background: full network edges (thin, low opacity)
-nx.draw_networkx_edges(G_norm, pos, ax=ax, width=edge_widths,
-                       edge_color="steelblue", alpha=0.25,
-                       arrows=False)
+nx.draw_networkx_edges(
+    G_norm,
+    pos,
+    ax=ax,
+    width=edge_widths,
+    edge_color="steelblue",
+    alpha=0.25,
+    arrows=False,
+)
 
 # Background: non-top nodes (small, grey)
-nx.draw_networkx_nodes(G_norm, pos, ax=ax, nodelist=other_nodes,
-                       node_size=30, node_color="lightgrey", alpha=0.5)
+nx.draw_networkx_nodes(
+    G_norm,
+    pos,
+    ax=ax,
+    nodelist=other_nodes,
+    node_size=30,
+    node_color="lightgrey",
+    alpha=0.5,
+)
 
 # Foreground: top-20 nodes (large, colored)
-nx.draw_networkx_nodes(G_norm, pos, ax=ax, nodelist=top_nodes,
-                       node_size=top_sizes, node_color=top_colors, alpha=0.95)
+nx.draw_networkx_nodes(
+    G_norm,
+    pos,
+    ax=ax,
+    nodelist=top_nodes,
+    node_size=top_sizes,
+    node_color=top_colors,
+    alpha=0.95,
+)
 
 # Labels only for top-20
-nx.draw_networkx_labels(G_norm, pos, ax=ax,
-                        labels={n: str(n) for n in top_nodes},
-                        font_size=6, font_color="black")
+nx.draw_networkx_labels(
+    G_norm,
+    pos,
+    ax=ax,
+    labels={n: str(n) for n in top_nodes},
+    font_size=6,
+    font_color="black",
+)
 
 sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
 sm.set_array([])
 plt.colorbar(sm, ax=ax, label="Mean boardings/h (top 20)")
-ax.set_title(f"Bus network – top {TOP_N} stops by occupancy highlighted (Salvador, BA)", fontsize=13)
+ax.set_title(
+    f"Bus network – top {TOP_N} stops by occupancy highlighted (Salvador, BA)",
+    fontsize=13,
+)
 ax.axis("off")
 fig.tight_layout()
 fig.savefig(OUTPUT_DIR / "A_top20_graph.png", dpi=150)
@@ -183,7 +220,7 @@ print("\nSaved A_top20_graph.png")
 centrality = nx.degree_centrality(G_full)
 top_centrality = sorted(centrality, key=centrality.get, reverse=True)[:TOP_N]
 G_cent = G_full.subgraph(top_centrality).copy()
-pos_c  = get_pos(G_cent)
+pos_c = get_pos(G_cent)
 missing_c = [n for n in G_cent.nodes if n not in pos_c]
 if missing_c:
     pos_c.update(nx.spring_layout(G_cent.subgraph(missing_c), seed=0))
@@ -191,11 +228,18 @@ if missing_c:
 cent_values = [centrality[n] for n in G_cent.nodes]
 fig, ax = plt.subplots(figsize=(10, 8))
 nx.draw_networkx(
-    G_cent, pos_c, ax=ax,
+    G_cent,
+    pos_c,
+    ax=ax,
     node_size=[500 + 3000 * v for v in cent_values],
-    node_color=cent_values, cmap="plasma",
-    edge_color="grey", width=0.8, alpha=0.85,
-    font_size=7, arrows=True, arrowsize=12,
+    node_color=cent_values,
+    cmap="plasma",
+    edge_color="grey",
+    width=0.8,
+    alpha=0.85,
+    font_size=7,
+    arrows=True,
+    arrowsize=12,
     connectionstyle="arc3,rad=0.08",
 )
 ax.set_title(f"Top {TOP_N} stops by degree centrality", fontsize=13)
@@ -213,8 +257,9 @@ if FOLIUM_AVAILABLE:
     lat_center = -12.9714
     lon_center = -38.5014
 
-    fmap = folium.Map(location=[lat_center, lon_center], zoom_start=12,
-                      tiles="CartoDB positron")
+    fmap = folium.Map(
+        location=[lat_center, lon_center], zoom_start=12, tiles="CartoDB positron"
+    )
 
     max_b = mean_occ.head(TOP_N).max()
     for stop in top_stops:
@@ -255,7 +300,7 @@ if FOLIUM_AVAILABLE:
 
     out_html = OUTPUT_DIR / "C_interactive_map.html"
     fmap.save(str(out_html))
-    print(f"Saved C_interactive_map.html → open in browser")
+    print("Saved C_interactive_map.html → open in browser")
 else:
     print("Skipped interactive map (folium not available)")
 

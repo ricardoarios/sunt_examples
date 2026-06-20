@@ -1,9 +1,9 @@
 """
-01 – Time-series visualization of bus-stop boardings.
+01 - Time-series visualization of bus-stop boardings.
 
 Produces four figures:
   A) Daily boarding profile for the top 5 stops (line chart)
-  B) Heatmap: hour-of-day × day-of-week for a single stop
+  B) Heatmap: hour-of-day x day-of-week for a single stop
   C) Weekly seasonality comparison (box-plot by day-of-week)
   D) Rolling 7-day average vs raw signal (trend decomposition preview)
 """
