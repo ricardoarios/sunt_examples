@@ -5,7 +5,7 @@ Visualization and demand forecasting examples for public transportation using th
 The dataset integrates AFC (fare collection), AVL (vehicle GPS), LTI (trip information), and GTFS data from Salvador/BA buses.
 
 **Dataset paper:** Ferreira et al., *"SUNT: A multimodal urban public transportation dataset"*, Scientific Data, Nature (2025).  
-**DOI:** https://www.nature.com/articles/s41597-025-05674-6
+**DOI:** [s41597-025-05674-6](https://www.nature.com/articles/s41597-025-05674-6)
 
 ---
 
@@ -14,7 +14,7 @@ The dataset integrates AFC (fare collection), AVL (vehicle GPS), LTI (trip infor
 Each script is self-contained and writes its results to `outputs/<topic>/`.
 
 | Script | Model / Topic |
-|---|---|
+| --- | --- |
 | `01_viz_timeseries.py` | Time series visualization (daily profiles, heatmap, seasonality, moving average) |
 | `02_viz_graphs.py` | Network graph visualization (top-20 stops, centrality, interactive Folium map) |
 | `03_forecast_sarima.py` | Univariate SARIMA with automatic order selection via `pmdarima.auto_arima` |
@@ -30,14 +30,40 @@ Each script is self-contained and writes its results to `outputs/<topic>/`.
 
 ## Installation
 
-```bash
-pip install -r requirements.txt
-```
-
 **Notes:**
 
 - `torch-geometric` requires a separate installation compatible with the installed PyTorch version — see [pytorch-geometric.readthedocs.io](https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html). Scripts 08, 09, and 10 fall back to a custom implementation if PyG is not available.
 - `chronos-forecasting` requires Python 3.12+.
+
+Bellow instrunctions to instal overall dependencies using pip or uv.
+
+### UV
+
+To install dependencies using uv, run:
+
+```bash
+uv sync
+```
+
+To run any scripts of this tutorial, run:
+
+```bash
+uv run <file_script>.py
+```
+
+### Pip
+
+To install dependencies using pip, run:
+
+```bash
+pip install -r requirements.txt
+```
+
+To run any scripts of this tutorial, run:
+
+```bash
+python <file_script>.py
+```
 
 ---
 
@@ -59,7 +85,7 @@ Scripts automatically download and cache data to `~/.cache/sunt_dataset/`. On th
 The `utils` module centralizes dataset access via the `suntdataset` package (PyPI) or directly from HuggingFace (`source="hgface"`).
 
 | Function | Returns |
-|---|---|
+| --- | --- |
 | `load_timeseries(freq, top_n, ...)` | `(T × N)` matrix of boardings per stop — primary input for deep learning models |
 | `load_boarding(...)` | Raw boarding events |
 | `load_alighting(...)` | Estimated alighting events |
@@ -75,11 +101,12 @@ The `utils` module centralizes dataset access via the `suntdataset` package (PyP
 ## Graph models (08–10)
 
 All three build the network graph from OD data:
+
 - **Nodes** = bus stops (top N by boarding volume)
 - **Edges** = consecutive stops on the same trip, weighted by total passengers
 
 | Model | Spatial component | Temporal component |
-|---|---|---|
+| --- | --- | --- |
 | GCN (08) | GCNConv — fixed weights from normalized adjacency | — (INPUT_LEN as direct features) |
 | T-GCN (09) | GCNConv — fixed weights | GRU |
 | T-GAT (10) | GATConv — **learned attention** per edge | GRU |
@@ -91,7 +118,7 @@ T-GAT also generates `gat_attention.png` (custom implementation): an N×N heatma
 ## Common hyperparameters (deep learning)
 
 | Parameter | Default value |
-|---|---|
+| --- | --- |
 | `INPUT_LEN` | 72 (3 hourly days) |
 | `HORIZON` | 24 (1-day-ahead forecast) |
 | `FREQ` | `"1h"` |
@@ -105,7 +132,7 @@ Reported metrics: **MAE**, **RMSE**, **MAPE** on original-scale values (passenge
 
 ## Generated outputs
 
-```
+```bash
 outputs/
   viz_timeseries/     daily profiles, heatmap, seasonality, moving average
   viz_graphs/         top-20 graph, centrality, interactive map (.html)
