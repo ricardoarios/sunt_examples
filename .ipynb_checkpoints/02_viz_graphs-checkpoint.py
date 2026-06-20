@@ -1,5 +1,5 @@
 """
-02 – Graph visualization of the bus network.
+02 - Graph visualization of the bus network.
 
 Produces:
   A) Simplified graph: top 20 stops by mean occupancy, geographic layout

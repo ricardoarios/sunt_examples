@@ -1,31 +1,31 @@
 """
-01 – Time-series visualization of bus-stop boardings.
+01 - Time-series visualization of bus-stop boardings.
 
 Produces four figures:
   A) Daily boarding profile for the top 5 stops (line chart)
-  B) Heatmap: hour-of-day × day-of-week for a single stop
+  B) Heatmap: hour-of-day x day-of-week for a single stop
   C) Weekly seasonality comparison (box-plot by day-of-week)
   D) Rolling 7-day average vs raw signal (trend decomposition preview)
 """
 
-from pathlib import Path
 import pickle
-import matplotlib.pyplot as plt
+from pathlib import Path
+
 import matplotlib.dates as mdates
-import seaborn as sns
+import matplotlib.pyplot as plt
 import pandas as pd
-import numpy as np
+import seaborn as sns
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 OUTPUT_DIR = Path("outputs/viz_timeseries")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-DATA_FILE  = Path("data/sunt.data")
+DATA_FILE = Path("data/sunt.data")
 
-FREQ = "1h"          # temporal resolution for the plots
-TOP_N_STOPS = 5      # how many stops to highlight
-SINGLE_STOP = None   # set to a specific stop_id to override auto-selection
+FREQ = "1h"  # temporal resolution for the plots
+TOP_N_STOPS = 5  # how many stops to highlight
+SINGLE_STOP = None  # set to a specific stop_id to override auto-selection
 
 sns.set_theme(style="whitegrid", palette="tab10")
 
@@ -67,9 +67,17 @@ print("Saved A_daily_profiles.png")
 stop_series = ts[SINGLE_STOP].copy()
 stop_df = stop_series.to_frame("boardings")
 stop_df["hour"] = stop_df.index.hour
-stop_df["dow"]  = stop_df.index.day_name()
+stop_df["dow"] = stop_df.index.day_name()
 
-dow_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+dow_order = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+]
 pivot = (
     stop_df.groupby(["hour", "dow"])["boardings"]
     .mean()
@@ -100,11 +108,15 @@ fig, axes = plt.subplots(1, TOP_N_STOPS, figsize=(16, 4), sharey=False)
 
 for ax, stop in zip(axes, top_stops):
     s = ts[stop].to_frame("boardings")
-    s["dow"] = pd.Categorical(
-        s.index.day_name(), categories=dow_order, ordered=True
+    s["dow"] = pd.Categorical(s.index.day_name(), categories=dow_order, ordered=True)
+    sns.boxplot(
+        data=s,
+        x="dow",
+        y="boardings",
+        ax=ax,
+        palette="pastel",
+        flierprops={"ms": 2, "alpha": 0.4},
     )
-    sns.boxplot(data=s, x="dow", y="boardings", ax=ax,
-                palette="pastel", flierprops={"ms": 2, "alpha": 0.4})
     ax.set_title(f"Stop {stop}", fontsize=9)
     ax.set_xlabel("")
     ax.tick_params(axis="x", rotation=45, labelsize=7)

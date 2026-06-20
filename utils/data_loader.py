@@ -6,29 +6,27 @@ API:
     loader.load_batch(dataset_type, start_date, periods, freq, day_type)
 
 Dataset types available via load_batch():
-    'boarding'       – AFC + LTI + AVL + GTFS integrated boarding events
-    'alighting'      – estimated alighting events
-    'od'             – Origin-Destination (loading per stop/trip)
-    'gtfs-stops'     – bus stop metadata
-    'gtfs-trips'     – trip definitions
-    'gtfs-stop-times'– stop-time sequences per trip
-    'gtfs-routes'    – route/line metadata
-    'gtfs-shapes'    – geographic shapes
-    'gtfs-agency'    – agency info
-    'afc'            – raw fare-collection events  (from Mendeley)
-    'avl-lines'      – static route/stop sequences (from Mendeley)
-    'avl-vehicles'   – timestamped GPS vehicle positions (from Mendeley)
-    'lti'            – trip start/end info          (from Mendeley)
+    'boarding'       - AFC + LTI + AVL + GTFS integrated boarding events
+    'alighting'      - estimated alighting events
+    'od'             - Origin-Destination (loading per stop/trip)
+    'gtfs-stops'     - bus stop metadata
+    'gtfs-trips'     - trip definitions
+    'gtfs-stop-times'- stop-time sequences per trip
+    'gtfs-routes'    - route/line metadata
+    'gtfs-shapes'    - geographic shapes
+    'gtfs-agency'    - agency info
+    'afc'            - raw fare-collection events  (from Mendeley)
+    'avl-lines'      - static route/stop sequences (from Mendeley)
+    'avl-vehicles'   - timestamped GPS vehicle positions (from Mendeley)
+    'lti'            - trip start/end info          (from Mendeley)
 
 Paper: https://www.nature.com/articles/s41597-025-05674-6
 """
 
 from __future__ import annotations
 
-import io
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
 
 import networkx as nx
 import numpy as np
@@ -48,11 +46,11 @@ _COLUMN_ALIASES = {
 # HuggingFace folder name for each dataset type
 _HF_FOLDER = {
     "boarding": "Boarding",
-    "od":       "OD",
-    "alighting":"Alighting",
+    "od": "OD",
+    "alighting": "Alighting",
 }
 
-_HF_API     = "https://huggingface.co/api/datasets/labiaufba/PublicTransportationSunt/tree/main/{folder}"
+_HF_API = "https://huggingface.co/api/datasets/labiaufba/PublicTransportationSunt/tree/main/{folder}"
 _HF_RESOLVE = "https://huggingface.co/datasets/labiaufba/PublicTransportationSunt/resolve/main/{folder}/{fname}"
 
 # Local cache directory for HuggingFace downloads.
@@ -76,9 +74,9 @@ def get_available_dates(dataset_type: str) -> set[str]:
         r.raise_for_status()
         dates = set()
         for entry in r.json():
-            fname = entry["path"].split("/")[-1]          # e.g. "boarding-2024-04-01.parquet"
-            date_part = fname.split("-", 1)[-1]           # "2024-04-01.parquet"
-            date_str  = date_part.replace(".parquet", "") # "2024-04-01"
+            fname = entry["path"].split("/")[-1]  # e.g. "boarding-2024-04-01.parquet"
+            date_part = fname.split("-", 1)[-1]  # "2024-04-01.parquet"
+            date_str = date_part.replace(".parquet", "")  # "2024-04-01"
             dates.add(date_str)
         return dates
     except Exception:
@@ -89,7 +87,9 @@ def _load_one_hgface(dataset_type: str, date_str: str) -> pd.DataFrame:
     """Return a single day's parquet, reading from local cache or downloading and caching it."""
     folder = _HF_FOLDER.get(dataset_type)
     if folder is None:
-        raise ValueError(f"HuggingFace loading not supported for dataset_type='{dataset_type}'")
+        raise ValueError(
+            f"HuggingFace loading not supported for dataset_type='{dataset_type}'"
+        )
     fname = f"{dataset_type}-{date_str}.parquet"
     cache_path = CACHE_DIR / folder / fname
     if cache_path.exists():
@@ -160,6 +160,7 @@ def _rename_dash_cols(df: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Loaders
 # ---------------------------------------------------------------------------
+
 
 def load_boarding(
     start_date: str = "2024-04-01",
@@ -245,6 +246,7 @@ def load_gtfs(table: str = "stops") -> pd.DataFrame:
 # Feature engineering
 # ---------------------------------------------------------------------------
 
+
 def load_timeseries(
     start_date: str = "2024-04-01",
     n_days: int = 30,
@@ -257,7 +259,7 @@ def load_timeseries(
     Memory-efficient alternative to load_boarding() + create_stop_timeseries().
 
     Loads boarding data one day at a time, aggregates immediately to
-    (time × stop) counts, then discards the raw rows. Peak memory is
+    (time x stop) counts, then discards the raw rows. Peak memory is
     O(1 day of raw data) instead of O(n_days of raw data).
 
     Parameters
@@ -302,8 +304,10 @@ def load_timeseries(
             # Clip to the calendar day to prevent out-of-range timestamps
             # from inflating the time axis (trips crossing midnight, bad GPS, etc.)
             day_start = pd.Timestamp(date_str)
-            day_end   = day_start + pd.Timedelta(days=1)
-            df = df[(df["register_time"] >= day_start) & (df["register_time"] < day_end)]
+            day_end = day_start + pd.Timedelta(days=1)
+            df = df[
+                (df["register_time"] >= day_start) & (df["register_time"] < day_end)
+            ]
             if df.empty:
                 continue
 
@@ -343,7 +347,7 @@ def create_stop_timeseries(
     fillna: float = 0.0,
 ) -> pd.DataFrame:
     """
-    Aggregate boarding events into a (time × stop) matrix.
+    Aggregate boarding events into a (time x stop) matrix.
 
     Parameters
     ----------
@@ -449,16 +453,16 @@ def prepare_sequences(
 
     n = len(X)
     n_train = int(n * train_ratio)
-    n_val   = int(n * val_ratio)
+    n_val = int(n * val_ratio)
 
     return {
-        "X_train":    X[:n_train],
-        "y_train":    y[:n_train],
-        "X_val":      X[n_train : n_train + n_val],
-        "y_val":      y[n_train : n_train + n_val],
-        "X_test":     X[n_train + n_val :],
-        "y_test":     y[n_train + n_val :],
-        "scaler":     scaler,
-        "columns":    ts.columns.tolist(),
+        "X_train": X[:n_train],
+        "y_train": y[:n_train],
+        "X_val": X[n_train : n_train + n_val],
+        "y_val": y[n_train : n_train + n_val],
+        "X_test": X[n_train + n_val :],
+        "y_test": y[n_train + n_val :],
+        "scaler": scaler,
+        "columns": ts.columns.tolist(),
         "n_features": ts.shape[1],
     }

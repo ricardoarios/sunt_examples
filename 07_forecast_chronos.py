@@ -1,5 +1,5 @@
 """
-08 – Chronos zero-shot forecast for multiple bus stops.
+08 - Chronos zero-shot forecast for multiple bus stops.
 
 Chronos is Amazon's foundation model for time series forecasting.
 No training is required — pre-trained weights are loaded from HuggingFace
@@ -13,14 +13,14 @@ Mode         : zero-shot (no fine-tuning)
 Install: pip install chronos-forecasting
 """
 
+import pickle
 from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from chronos import ChronosPipeline
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-
-import pickle
 
 from utils import prepare_sequences
 
@@ -29,17 +29,17 @@ from utils import prepare_sequences
 # ---------------------------------------------------------------------------
 OUTPUT_DIR = Path("outputs/chronos")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-DATA_FILE  = Path("data/sunt.data")
+DATA_FILE = Path("data/sunt.data")
 
-FREQ        = "1h"
-TOP_N       = 20
-INPUT_LEN   = 128    # 128 steps ≈ 5 days; keeps memory manageable on CPU
-HORIZON     = 24     # forecast 1 day ahead
-NUM_SAMPLES = 10     # probabilistic samples — median used as point forecast
-BATCH_SIZE  = 16     # windows per inference call (avoids OOM on CPU)
-MODEL_ID    = "amazon/chronos-t5-small"  # 46 M params — good balance for CPU
-DEVICE      = "cuda" if torch.cuda.is_available() else "cpu"
-SEED        = 42
+FREQ = "1h"
+TOP_N = 20
+INPUT_LEN = 128  # 128 steps ≈ 5 days; keeps memory manageable on CPU
+HORIZON = 24  # forecast 1 day ahead
+NUM_SAMPLES = 10  # probabilistic samples — median used as point forecast
+BATCH_SIZE = 16  # windows per inference call (avoids OOM on CPU)
+MODEL_ID = "amazon/chronos-t5-small"  # 46 M params — good balance for CPU
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+SEED = 42
 
 np.random.seed(SEED)
 torch.manual_seed(SEED)
@@ -53,28 +53,28 @@ with open(DATA_FILE, "rb") as _f:
 print(f"  Time series shape: {ts.shape}  (steps × stops)")
 
 splits = prepare_sequences(ts, input_len=INPUT_LEN, horizon=HORIZON)
-N      = splits["n_features"]
+N = splits["n_features"]
 scaler = splits["scaler"]
 
-print(f"  Train: {len(splits['X_train'])}  "
-      f"Val: {len(splits['X_val'])}  "
-      f"Test: {len(splits['X_test'])}")
+print(
+    f"  Train: {len(splits['X_train'])}  "
+    f"Val: {len(splits['X_val'])}  "
+    f"Test: {len(splits['X_test'])}"
+)
 
 # Inverse-scale test windows so Chronos receives actual boarding counts.
 # Foundation models normalise internally; feeding MinMax-scaled data
 # would distort its learned priors.
-X_test = splits["X_test"]   # (S, INPUT_LEN, N) — scaled
-y_test = splits["y_test"]   # (S, HORIZON,   N) — scaled
+X_test = splits["X_test"]  # (S, INPUT_LEN, N) — scaled
+y_test = splits["y_test"]  # (S, HORIZON,   N) — scaled
 
-X_test_raw = np.stack([
-    np.clip(scaler.inverse_transform(X_test[s]), 0, None)
-    for s in range(len(X_test))
-])  # (S, INPUT_LEN, N)
+X_test_raw = np.stack(
+    [np.clip(scaler.inverse_transform(X_test[s]), 0, None) for s in range(len(X_test))]
+)  # (S, INPUT_LEN, N)
 
-y_test_raw = np.stack([
-    np.clip(scaler.inverse_transform(y_test[s]), 0, None)
-    for s in range(len(y_test))
-])  # (S, HORIZON, N)
+y_test_raw = np.stack(
+    [np.clip(scaler.inverse_transform(y_test[s]), 0, None) for s in range(len(y_test))]
+)  # (S, HORIZON, N)
 
 # ---------------------------------------------------------------------------
 # Model  (zero-shot — no training)
@@ -103,8 +103,9 @@ for stop_i in range(N):
             for s in range(batch_start, batch_end)
         ]
         # forecast: (num_samples, batch, HORIZON)
-        forecast = pipeline.predict(contexts, prediction_length=HORIZON,
-                                    num_samples=NUM_SAMPLES)
+        forecast = pipeline.predict(
+            contexts, prediction_length=HORIZON, num_samples=NUM_SAMPLES
+        )
         # forecast: (batch, num_samples, HORIZON) — median over samples axis
         preds_stop.append(np.clip(forecast.median(dim=1).values.numpy(), 0, None))
 
@@ -116,35 +117,43 @@ for stop_i in range(N):
 # ---------------------------------------------------------------------------
 # Evaluation  (same metrics as LSTM / GRU)
 # ---------------------------------------------------------------------------
-pred_flat = all_pred.reshape(-1, N)    # already in original scale
+pred_flat = all_pred.reshape(-1, N)  # already in original scale
 true_flat = y_test_raw.reshape(-1, N)
 
-mae  = mean_absolute_error(true_flat, pred_flat)
+mae = mean_absolute_error(true_flat, pred_flat)
 rmse = np.sqrt(mean_squared_error(true_flat, pred_flat))
 mask = true_flat != 0
 mape = np.mean(np.abs((true_flat[mask] - pred_flat[mask]) / true_flat[mask])) * 100
 
-print(f"\n{'='*40}")
+print(f"\n{'=' * 40}")
 print(f"  MAE  : {mae:.3f}")
 print(f"  RMSE : {rmse:.3f}")
 print(f"  MAPE : {mape:.2f}%")
-print(f"{'='*40}")
+print(f"{'=' * 40}")
 
 # ---------------------------------------------------------------------------
 # Plots
 # ---------------------------------------------------------------------------
-stop_idx  = 0
+stop_idx = 0
 stop_name = splits["columns"][stop_idx]
-series    = ts[stop_name]
-train_tail = series.iloc[-(7 * 24 + HORIZON):-HORIZON]
-actual     = series.iloc[-HORIZON:]
-last_pred  = pred_flat[-HORIZON:, stop_idx]
+series = ts[stop_name]
+train_tail = series.iloc[-(7 * 24 + HORIZON) : -HORIZON]
+actual = series.iloc[-HORIZON:]
+last_pred = pred_flat[-HORIZON:, stop_idx]
 
 fig, ax = plt.subplots(figsize=(14, 5))
-ax.plot(train_tail.index, train_tail.values, color="steelblue", lw=0.9, label="Train (tail)")
+ax.plot(
+    train_tail.index, train_tail.values, color="steelblue", lw=0.9, label="Train (tail)"
+)
 ax.plot(actual.index, actual.values, color="black", lw=1.2, label="Actual")
-ax.plot(actual.index, last_pred, color="royalblue", lw=1.5, linestyle="--",
-        label="Chronos forecast (zero-shot)")
+ax.plot(
+    actual.index,
+    last_pred,
+    color="royalblue",
+    lw=1.5,
+    linestyle="--",
+    label="Chronos forecast (zero-shot)",
+)
 ax.set_title(
     f"Chronos (zero-shot) | Stop {stop_name} | "
     f"MAE={mae:.1f}  RMSE={rmse:.1f}  MAPE={mape:.1f}%",
