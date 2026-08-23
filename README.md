@@ -7,6 +7,27 @@ The dataset integrates AFC (fare collection), AVL (vehicle GPS), LTI (trip infor
 **Dataset paper:** Ferreira et al., *"SUNT: A multimodal urban public transportation dataset"*, Scientific Data, Nature (2025).  
 **DOI:** https://www.nature.com/articles/s41597-025-05674-6
 
+## Citation
+
+If you use the SUNT dataset in your research, please cite:
+
+```latex
+\cite{ferreira2025salvador}
+```
+
+```bibtex
+@article{ferreira2025salvador,
+  title={Salvador Urban Network Transportation (SUNT): A landmark spatiotemporal dataset for public transportation},
+  author={Ferreira, Marcos V and Souza, Matheus and Rios, Tatiane N and Fernandes, Islame FC and Nery, Jorge and Gama, Jo{\~a}o and Bifet, Albert and Rios, Ricardo A},
+  journal={Scientific Data},
+  volume={12},
+  number={1},
+  pages={1320},
+  year={2025},
+  publisher={Nature Publishing Group UK London}
+}
+```
+
 ---
 
 ## Script structure
